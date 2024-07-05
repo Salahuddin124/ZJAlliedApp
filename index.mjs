@@ -20,10 +20,47 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
 const app = express();
-const port = 8080;
+const port = process.env.PORT || 3000;
 app.use(express.json());
 
 app.post('/uploadData', async (req, res) => {
+    try {
+     
+      const { from, to, message } = req.body;
+  
+      if (!from || !to || !message) {
+        return res.status(400).json({ error: "Missing required fields: 'from', 'to', 'message'" });
+      }
+  
+      // Check if 'from' is a number
+      if (typeof from !== 'number') {
+        return res.status(400).json({ error: "'from' must be a number" });
+      }
+  
+      // Generate current timestamp in ISO 8601 format
+      const timestamp = new Date().toISOString();
+  
+      // Data to upload
+      const data = {
+        from: from,
+        to: to,
+        message: message,
+        timestamp: timestamp
+      };
+  
+
+      const docRef = await addDoc(collection(db, 'DateNumber'), data);
+      console.log('Document written with ID: ', docRef.id);
+  
+    
+      res.json({ message: 'Data uploaded successfully', docId: docRef.id });
+    } catch (error) {
+      console.error('Error uploading data: ', error);
+      // Send JSON response indicating error
+      res.status(500).json({ error: 'Error uploading data' });
+    }
+  });
+  app.post('/uploadData', async (req, res) => {
     try {
      
       const { from, to, message } = req.body;
