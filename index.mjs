@@ -34,9 +34,7 @@ app.use(express.json());
       }
   
       // Check if 'from' is a number
-      if (typeof from !== 'number') {
-        return res.status(400).json({ error: "'from' must be a number" });
-      }
+      
   
       // Generate current timestamp in ISO 8601 format
       const timestamp = new Date().toISOString();
