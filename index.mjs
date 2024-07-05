@@ -20,7 +20,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
 const app = express();
-const port = 3000;
+const port = 8080;
 app.use(express.json());
 
 app.post('/uploadData', async (req, res) => {
