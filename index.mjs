@@ -54,7 +54,7 @@ app.use(express.json());
       console.log('Document written with ID: ', docRef.id);
   
     
-      res.json({ message: 'Data uploaded successfully', docId: docRef.id });
+      res.status('200').json({ message: 'Data uploaded successfully', docId: docRef.id });
     } catch (error) {
       console.error('Error uploading data: ', error);
       // Send JSON response indicating error
