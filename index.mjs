@@ -46,7 +46,7 @@ app.use(express.json());
         from: from,
         to: to,
         message: message,
-        timestamp: timestamp
+        createdAt: timestamp
       };
   
 
