@@ -32,8 +32,8 @@ const redisClient = new Redis(process.env.REDIS_URL + '?family=0'
 );
 
 // Initialize Bull Queue
-const messageQueue = new Queue('messageQueue', {
-    redis: redisClient
+const messageQueue = new Queue('messageQueue',process.env {
+    redis: { tls: true, enableTLSForSentinelMode: false }
 });
 
 // Route to enqueue data
