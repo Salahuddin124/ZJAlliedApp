@@ -52,14 +52,14 @@ const messageQueue = new Queue('messageQueue', {
             case 'subscriber':
                 return new Redis(process.env.REDIS_URL + '?family=0', {
                     lazyConnect: true,
-                    connectTimeout: 5000,
+                    connectTimeout: 10000,
                     maxRetriesPerRequest: 3,
                     tls: { rejectUnauthorized: false }
                 });
             default:
                 return new Redis(process.env.REDIS_URL + '?family=0', {
                     lazyConnect: true,
-                    connectTimeout: 5000,
+                    connectTimeout: 10000,
                     maxRetriesPerRequest: 3,
                     tls: { rejectUnauthorized: false }
                 });
