@@ -28,10 +28,10 @@ app.use(express.json());
 
 // Initialize Redis client
 const redisClient = new Redis({
-    host: redis.railway.internal,
+    host: "redis.railway.internal",
     port:  6379,
     username: "default",
-    password: SlssXXhdViZcyVeKjTkJGpiKMVmcjoiC,
+    password: "SlssXXhdViZcyVeKjTkJGpiKMVmcjoiC",
     tls: "redis://default:SlssXXhdViZcyVeKjTkJGpiKMVmcjoiC@roundhouse.proxy.rlwy.net:25315"
 });
 
