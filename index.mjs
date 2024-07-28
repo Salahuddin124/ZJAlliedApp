@@ -27,17 +27,8 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 // Initialize Redis client
-const redisClient = new Redis({
-    username: 'default', // use your Redis user. More info https://redis.io/docs/latest/operate/oss_and_stack/management/security/acl/
-    password: '"SlssXXhdViZcyVeKjTkJGpiKMVmcjoiC"', // use your password here
-    socket: {
-        host: 'redis.railway.internal',
-        port: 6379,
-        tls: true,
-       
-    }
-   }
-);
+const redisClient = new Redis(process.env.REDIS_URL + '?family=0');
+const ping = await redisClient.ping();
 
 // Initialize Bull Queue
 const messageQueue = new Queue('messageQueue', {
