@@ -32,9 +32,9 @@ const redisClient = new Redis(process.env.REDIS_URL + '?family=0'
 );
 
 // Initialize Bull Queue
-const messageQueue = new Queue('messageQueue',process.env.REDIS_URL, {
-    redis: { tls: true, enableTLSForSentinelMode: false }
-});
+const messageQueue = new Bull("imageQueue", process.env.REDIS_URL, {
+    redis: { tls: { rejectUnauthorized: false } },
+  });
 
 // Route to enqueue data
 app.post('/uploadData', async (req, res) => {
