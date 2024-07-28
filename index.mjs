@@ -2,8 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
 import express from 'express';
 import Redis from 'ioredis';
-import pkg from 'bull';
-const { Queue } = pkg;
+import Queue from 'bull'; // Correct import
 
 // Load environment variables
 import 'dotenv/config'; // or require('dotenv').config();
@@ -27,15 +26,16 @@ const app = express();
 const port = process.env.PORT || 3000;
 app.use(express.json());
 
-// Initialize Redis and Bull Queue using environment variables
+// Initialize Redis client
 const redisClient = new Redis({
     host: process.env.REDISHOST || 'localhost',
     port: parseInt(process.env.REDISPORT, 10) || 6379,
     username: process.env.REDISUSER || undefined,
     password: process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined,
-    tls: process.env.REDIS_PUBLIC_URL ? {} : undefined // If REDIS_PUBLIC_URL is set, use TLS
+    tls: process.env.REDIS_PUBLIC_URL ? {} : undefined // Use TLS if REDIS_PUBLIC_URL is set
 });
 
+// Initialize Bull Queue
 const messageQueue = new Queue('messageQueue', {
     redis: redisClient
 });
