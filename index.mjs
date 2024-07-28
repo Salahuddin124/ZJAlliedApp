@@ -26,45 +26,22 @@ const app = express();
 const port = process.env.PORT || 3000;
 app.use(express.json());
 
-// Initialize and test Redis client
-let redisClient;
-try {
-    redisClient = new Redis(process.env.REDIS_URL + '?family=0', {
-        lazyConnect: true,
-        connectTimeout: 5000,
-        maxRetriesPerRequest: 3,
-        tls: { rejectUnauthorized: false }
-    });
-
-    await redisClient.connect();
-    console.log('Connected to Redis successfully');
-} catch (e) {
-    console.log('Redis connection error:', e);
-    process.exit(1); // Exit the process if Redis connection fails
-}
+// Initialize Redis client
+const redisClient = new Redis({
+    username: 'default', // use your Redis user. More info https://redis.io/docs/latest/operate/oss_and_stack/management/security/acl/
+    password: '"SlssXXhdViZcyVeKjTkJGpiKMVmcjoiC"', // use your password here
+    socket: {
+        host: 'redis.railway.internal',
+        port: 6379,
+        tls: true,
+       
+    }
+   }
+);
 
 // Initialize Bull Queue
 const messageQueue = new Queue('messageQueue', {
-    createClient: (type) => {
-        switch (type) {
-            case 'client':
-                return redisClient;
-            case 'subscriber':
-                return new Redis(process.env.REDIS_URL + '?family=0', {
-                    lazyConnect: true,
-                    connectTimeout: 10000,
-                    maxRetriesPerRequest: 3,
-                    tls: { rejectUnauthorized: false }
-                });
-            default:
-                return new Redis(process.env.REDIS_URL + '?family=0', {
-                    lazyConnect: true,
-                    connectTimeout: 10000,
-                    maxRetriesPerRequest: 3,
-                    tls: { rejectUnauthorized: false }
-                });
-        }
-    }
+    redis: redisClient
 });
 
 // Route to enqueue data
