@@ -27,8 +27,12 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 // Initialize Redis client
-const redisClient = new Redis(
-    "redis://default:SlssXXhdViZcyVeKjTkJGpiKMVmcjoiC@roundhouse.proxy.rlwy.net:25315"+"?family=0"
+const redisClient = new Redis({
+    host: "redis://default:SlssXXhdViZcyVeKjTkJGpiKMVmcjoiC@roundhouse.proxy.rlwy.net:25315?family=0",
+    port:  6379,
+    username: "default",
+    password: "SlssXXhdViZcyVeKjTkJGpiKMVmcjoiC",
+   }
 );
 
 // Initialize Bull Queue
