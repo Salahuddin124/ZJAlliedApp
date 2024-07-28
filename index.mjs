@@ -1,8 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc } from 'firebase/firestore';
+import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
 import express from 'express';
+import Redis from 'ioredis';
+import pkg from 'bull';
+const { Queue } = pkg;
 
-// Replace with your Firebase project configuration
+// Load environment variables
+import 'dotenv/config'; // or require('dotenv').config();
+
 const firebaseConfig = {
     apiKey: "AIzaSyAZAGEPIm_MOurLcsKo_sq1E8Ebyrs_kj8",
     authDomain: "zj-allied-tech.firebaseapp.com",
@@ -15,51 +20,78 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
-
-// Get a Firestore instance
 const db = getFirestore(firebaseApp);
 
+// Initialize Express
 const app = express();
 const port = process.env.PORT || 3000;
 app.use(express.json());
 
+// Initialize Redis and Bull Queue using environment variables
+const redisClient = new Redis({
+    host: process.env.REDISHOST || 'localhost',
+    port: parseInt(process.env.REDISPORT, 10) || 6379,
+    username: process.env.REDISUSER || undefined,
+    password: process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined,
+    tls: process.env.REDIS_PUBLIC_URL ? {} : undefined // If REDIS_PUBLIC_URL is set, use TLS
+});
 
-  app.post('/uploadData', async (req, res) => {
+const messageQueue = new Queue('messageQueue', {
+    redis: redisClient
+});
+
+// Route to enqueue data
+app.post('/uploadData', async (req, res) => {
     try {
-     
-      const { from, to, message } = req.body;
-  
-      if (!from || !to || !message) {
-        return res.status(400).json({ error: "Missing required fields: 'from', 'to', 'message'" });
-      }
-  
-      // Check if 'from' is a number
-     
-  
-      // Generate current timestamp in ISO 8601 format
-      const timestamp = new Date().toISOString();
-  
-      // Data to upload
-      const data = {
-        from: from,
-        to: to,
-        message: message,
-        createdAt: timestamp
-      };
-  
+        const { from, to, message } = req.body;
 
-      const docRef = await addDoc(collection(db, 'DateNumber'), data);
-      console.log('Document written with ID: ', docRef.id);
-  
-    
-      res.status(200).json({ message: 'Data uploaded successfully', docId: docRef.id });
+        if (!from || !to || !message) {
+            return res.status(400).json({ error: "Missing required fields: 'from', 'to', 'message'" });
+        }
+
+        const timestamp = new Date().toISOString();
+
+        // Data to enqueue
+        const data = {
+            from,
+            to,
+            message,
+            createdAt: timestamp
+        };
+
+        await messageQueue.add(data);
+
+        res.status(200).json({ message: 'Data enqueued successfully' });
     } catch (error) {
-      console.error('Error uploading data: ', error);
-      // Send JSON response indicating error
-      res.status(500).json({ error: 'Error uploading data' });
+        console.error('Error enqueuing data: ', error);
+        res.status(500).json({ error: 'Error enqueuing data' });
     }
-  });
+});
+
+// Function to batch process queued data
+const processQueue = async () => {
+    const batchSize = 100; // Number of messages to process in each batch
+    const jobs = await messageQueue.getJobs(['waiting', 'active'], 0, batchSize);
+
+    const batchData = jobs.map(job => job.data);
+
+    // Batch upload to Firestore
+    const batch = writeBatch(db);
+    batchData.forEach(data => {
+        const docRef = doc(collection(db, 'DateNumber'));
+        batch.set(docRef, data);
+    });
+
+    await batch.commit();
+    console.log('Batch data uploaded successfully');
+
+    // Remove processed jobs from the queue
+    jobs.forEach(job => job.remove());
+};
+
+// Schedule batch processing every few minutes
+setInterval(processQueue, 5 * 60 * 1000); // 5 minutes
 
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+    console.log(`Server is running on http://localhost:${port}`);
 });
