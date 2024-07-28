@@ -32,7 +32,7 @@ const redisClient = new Redis(process.env.REDIS_URL + '?family=0'
 );
 
 // Initialize Bull Queue
-const messageQueue = new Queue('messageQueue',process.env {
+const messageQueue = new Queue('messageQueue',process.env.REDIS_URL {
     redis: { tls: true, enableTLSForSentinelMode: false }
 });
 
