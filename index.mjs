@@ -1,12 +1,12 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
 import express from 'express';
-import Redis from 'ioredis';
-import Queue from 'bull'; // Correct import
+import NodeCache from 'node-cache';
 
 // Load environment variables
-import 'dotenv/config'; // or require('dotenv').config();
+import 'dotenv/config';
 
+// Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyAZAGEPIm_MOurLcsKo_sq1E8Ebyrs_kj8",
     authDomain: "zj-allied-tech.firebaseapp.com",
@@ -26,13 +26,12 @@ const app = express();
 const port = process.env.PORT || 3000;
 app.use(express.json());
 
-// Initialize Redis client
-const redisClient = new Redis(process.env.REDIS_URL + '?family=0');
-const ping = await redisClient.ping();
-
-// Initialize Bull Queue
-const messageQueue = new Queue('messageQueue',process.env.REDIS_URL+'?family=0', {
-    redis: redisClient
+// Initialize in-memory cache
+const cache = new NodeCache({
+    stdTTL: 600, // Time to live in seconds (10 minutes)
+    checkperiod: 120, // Interval in seconds to check for expired keys
+    useClones: false, // Do not clone the cached objects (saves memory)
+    deleteOnExpire: true // Delete expired items
 });
 
 // Route to enqueue data
@@ -46,7 +45,7 @@ app.post('/uploadData', async (req, res) => {
 
         const timestamp = new Date().toISOString();
 
-        // Data to enqueue
+        // Data to cache
         const data = {
             from,
             to,
@@ -54,34 +53,35 @@ app.post('/uploadData', async (req, res) => {
             createdAt: timestamp
         };
 
-        await messageQueue.add(data);
+        // Store the data in the cache
+        const cacheKey = `data_${timestamp}_${from}_${to}`;
+        cache.set(cacheKey, data);
 
-        res.status(200).json({ message: 'Data enqueued successfully' });
+        res.status(200).json({ message: 'Data cached successfully' });
     } catch (error) {
-        console.error('Error enqueuing data: ', error);
-        res.status(500).json({ error: 'Error enqueuing data' });
+        console.error('Error caching data: ', error);
+        res.status(500).json({ error: 'Error caching data' });
     }
 });
 
-// Function to batch process queued data
+// Function to batch process cached data
 const processQueue = async () => {
-    const batchSize = 100; // Number of messages to process in each batch
-    const jobs = await messageQueue.getJobs(['waiting', 'active'], 0, batchSize);
+    const keys = cache.keys();
+    if (keys.length > 0) {
+        // Batch upload to Firestore
+        const batch = writeBatch(db);
+        keys.forEach(key => {
+            const data = cache.get(key);
+            if (data) {
+                const docRef = doc(collection(db, 'DateNumber'));
+                batch.set(docRef, data);
+                cache.del(key); // Remove processed items from cache
+            }
+        });
 
-    const batchData = jobs.map(job => job.data);
-
-    // Batch upload to Firestore
-    const batch = writeBatch(db);
-    batchData.forEach(data => {
-        const docRef = doc(collection(db, 'DateNumber'));
-        batch.set(docRef, data);
-    });
-
-    await batch.commit();
-    console.log('Batch data uploaded successfully');
-
-    // Remove processed jobs from the queue
-    jobs.forEach(job => job.remove());
+        await batch.commit();
+        console.log('Batch data uploaded successfully');
+    }
 };
 
 // Schedule batch processing every few minutes
