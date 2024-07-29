@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
 import express from 'express';
 import NodeCache from 'node-cache';
+import { v4 as uuidv4 } from 'uuid'; // Import UUID package
 
 // Load environment variables
 import 'dotenv/config';
@@ -53,11 +54,11 @@ app.post('/uploadData', async (req, res) => {
             createdAt: timestamp
         };
 
-        // Store the data in the cache
-        const cacheKey = `data_${timestamp}_${from}_${to}`;
+        // Generate a unique cache key using UUID
+        const cacheKey = uuidv4();
         cache.set(cacheKey, data);
 
-        res.status(200).json({ message: 'Data cached successfully' });
+        res.status(200).json({ message: 'Data cached successfully', id: cacheKey });
     } catch (error) {
         console.error('Error caching data: ', error);
         res.status(500).json({ error: 'Error caching data' });
@@ -66,26 +67,33 @@ app.post('/uploadData', async (req, res) => {
 
 // Function to batch process cached data
 const processQueue = async () => {
+    const batchSize = 80; // Number of messages to process in each batch
     const keys = cache.keys();
-    if (keys.length > 0) {
-        // Batch upload to Firestore
-        const batch = writeBatch(db);
-        keys.forEach(key => {
-            const data = cache.get(key);
-            if (data) {
-                const docRef = doc(collection(db, 'DateNumber'));
-                batch.set(docRef, data);
-                cache.del(key); // Remove processed items from cache
-            }
-        });
 
-        await batch.commit();
-        console.log('Batch data uploaded successfully');
+    if (keys.length > 0) {
+        for (let i = 0; i < keys.length; i += batchSize) {
+            const batchKeys = keys.slice(i, i + batchSize);
+            const batch = writeBatch(db);
+
+            batchKeys.forEach(key => {
+                const data = cache.get(key);
+                if (data) {
+                    const docRef = doc(collection(db, 'DateNumber'));
+                    batch.set(docRef, data);
+                    cache.del(key); // Remove processed items from cache
+                }
+            });
+
+            await batch.commit();
+            console.log(`Batch of ${batchKeys.length} documents uploaded successfully`);
+        }
+    } else {
+        console.log('No data to process');
     }
 };
 
-// Schedule batch processing every few minutes
-setInterval(processQueue, 5 * 60 * 1000); // 5 minutes
+// Schedule batch processing every 30 seconds
+setInterval(processQueue, 30 * 1000); // 30 seconds
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
