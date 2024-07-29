@@ -31,7 +31,7 @@ const redisClient = new Redis(process.env.REDIS_URL + '?family=0');
 const ping = await redisClient.ping();
 
 // Initialize Bull Queue
-const messageQueue = new Queue('messageQueue', {
+const messageQueue = new Queue('messageQueue',process.env.REDIS_URL+'?family=0', {
     redis: redisClient
 });
 
