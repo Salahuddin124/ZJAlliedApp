@@ -10,14 +10,14 @@ import cron from 'node-cron';
 
 // Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyAZAGEPIm_MOurLcsKo_sq1E8Ebyrs_kj8",
-    authDomain: "zj-allied-tech.firebaseapp.com",
-    projectId: "zj-allied-tech",
-    storageBucket: "zj-allied-tech.appspot.com",
-    messagingSenderId: "202020618968",
-    appId: "1:202020618968:web:c9c18bd9a15b462f088dad",
-    measurementId: "G-XL0NCKQFDZ"
-};
+    apiKey: "AIzaSyCttsrCMougKC_3hL61HPnkWGYP_AIkaEs",
+    authDomain: "zjallied2.firebaseapp.com",
+    projectId: "zjallied2",
+    storageBucket: "zjallied2.appspot.com",
+    messagingSenderId: "129442800699",
+    appId: "1:129442800699:web:d8bbcd05b66f6e07d0681e",
+    measurementId: "G-GE4FT3TJLG"
+  };
 
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
