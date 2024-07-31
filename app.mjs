@@ -4,9 +4,8 @@ import express from 'express';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import 'dotenv/config';
-import cluster from 'cluster';
-import os from 'os';
 import cron from 'node-cron';
+import fs from 'fs';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -17,7 +16,7 @@ const firebaseConfig = {
     messagingSenderId: "129442800699",
     appId: "1:129442800699:web:d8bbcd05b66f6e07d0681e",
     measurementId: "G-GE4FT3TJLG"
-  };
+};
 
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
@@ -35,12 +34,14 @@ app.use(express.json());
 app.post('/uploadData', async (req, res) => {
     try {
         const { from, to, message } = req.body;
+        const timestamp = new Date().toISOString();
 
         if (!from || !to || !message) {
+            // Log entry for missing fields
+            const logEntry = `Missing required fields or invalid data at ${timestamp}\n\n`;
+            fs.appendFileSync('README.txt', logEntry, 'utf8');
             return res.status(400).json({ error: "Missing required fields: 'from', 'to', 'message'" });
         }
-
-        const timestamp = new Date().toISOString();
 
         // Data to cache
         const data = {
@@ -49,6 +50,10 @@ app.post('/uploadData', async (req, res) => {
             message,
             createdAt: timestamp
         };
+
+        // Write data to README.txt
+        const logEntry = `From: ${from}\nTo: ${to}\nMessage: ${message}\nTimestamp: ${timestamp}\n\n`;
+        fs.appendFileSync('README.txt', logEntry, 'utf8');
 
         // Generate a unique cache key using UUID
         const cacheKey = uuidv4();
@@ -64,7 +69,7 @@ app.post('/uploadData', async (req, res) => {
 // Function to batch process cached data
 const processQueue = async () => {
     try {
-        const batchSize = 80; // Number of messages to process in each batch
+        const batchSize = 80; 
         const keys = await redis.keys('*');
 
         if (keys.length > 0) {
@@ -77,11 +82,25 @@ const processQueue = async () => {
                 const results = await pipeline.exec();
 
                 results.forEach(([err, data], index) => {
-                    if (data) {
-                        const docRef = doc(collection(db, 'DateNumber'));
-                        batch.set(docRef, JSON.parse(data));
-                        redis.del(batchKeys[index]); // Remove processed items from cache
+                    if (err) {
+                        console.error(`Error getting data for key ${batchKeys[index]}: `, err);
+                        return;
                     }
+
+                    try {
+                        const parsedData = JSON.parse(data);
+                        if (typeof parsedData === 'object' && parsedData !== null) {
+                            const docRef = doc(collection(db, 'DateNumber'));
+                            batch.set(docRef, parsedData);
+                        } else {
+                            console.error(`Invalid data format for key ${batchKeys[index]}: `, parsedData);
+                        }
+                    } catch (parseError) {
+                        console.error(`Error parsing data for key ${batchKeys[index]}: `, parseError);
+                    }
+
+                    // Remove processed items from cache
+                    redis.del(batchKeys[index]);
                 });
 
                 await batch.commit();
@@ -95,22 +114,10 @@ const processQueue = async () => {
     }
 };
 
-// Schedule batch processing every minute using cron
-cron.schedule('* * * * *', processQueue);
+// Schedule batch processing every 5 seconds using cron
+cron.schedule('*/5 * * * * *', processQueue);
 
-if (cluster.isMaster) {
-    // Fork workers
-    const numCPUs = os.cpus().length;
-    for (let i = 0; i < numCPUs; i++) {
-        cluster.fork();
-    }
-
-    cluster.on('exit', (worker, code, signal) => {
-        console.log(`Worker ${worker.process.pid} died`);
-        cluster.fork();
-    });
-} else {
-    app.listen(port, () => {
-        console.log(`Server is running on http://localhost:${port}`);
-    });
-}
+// Start the server
+app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+});
