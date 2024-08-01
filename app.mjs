@@ -35,7 +35,7 @@ app.use(express.json());
 app.post('/uploadData', async (req, res) => {
     try {
         const { from, to, message } = req.body;
-        const timestamp = moment().tz('Asia/Karachi').format();
+        const timestamp = moment().tz('Asia/Karachi').utc().format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
 
         if (!from || !to || !message) {
             // Log entry for missing fields
