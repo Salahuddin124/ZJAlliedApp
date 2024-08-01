@@ -5,18 +5,19 @@ import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import 'dotenv/config';
 import cron from 'node-cron';
-import fs from 'fs';
+
+import moment from 'moment-timezone';
 
 // Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyCttsrCMougKC_3hL61HPnkWGYP_AIkaEs",
-    authDomain: "zjallied2.firebaseapp.com",
-    projectId: "zjallied2",
-    storageBucket: "zjallied2.appspot.com",
-    messagingSenderId: "129442800699",
-    appId: "1:129442800699:web:d8bbcd05b66f6e07d0681e",
-    measurementId: "G-GE4FT3TJLG"
-};
+    apiKey: "AIzaSyCQ93kH_ERQ31g-1lZMK_0EnDHuceb1MHA",
+    authDomain: "zjalliedapp.firebaseapp.com",
+    projectId: "zjalliedapp",
+    storageBucket: "zjalliedapp.appspot.com",
+    messagingSenderId: "238126670586",
+    appId: "1:238126670586:web:cfc26b0ad45842a9199f43",
+    measurementId: "G-PYLYR7KQYD"
+  };
 
 // Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
@@ -34,12 +35,11 @@ app.use(express.json());
 app.post('/uploadData', async (req, res) => {
     try {
         const { from, to, message } = req.body;
-        const timestamp = new Date().toISOString();
+        const timestamp = moment().tz('Asia/Karachi').format();
 
         if (!from || !to || !message) {
             // Log entry for missing fields
-            const logEntry = `Missing required fields or invalid data at ${timestamp}\n\n`;
-            fs.appendFileSync('README.txt', logEntry, 'utf8');
+            
             return res.status(400).json({ error: "Missing required fields: 'from', 'to', 'message'" });
         }
 
@@ -52,8 +52,7 @@ app.post('/uploadData', async (req, res) => {
         };
 
         // Write data to README.txt
-        const logEntry = `From: ${from}\nTo: ${to}\nMessage: ${message}\nTimestamp: ${timestamp}\n\n`;
-        fs.appendFileSync('README.txt', logEntry, 'utf8');
+       
 
         // Generate a unique cache key using UUID
         const cacheKey = uuidv4();
@@ -69,7 +68,7 @@ app.post('/uploadData', async (req, res) => {
 // Function to batch process cached data
 const processQueue = async () => {
     try {
-        const batchSize = 80; 
+        const batchSize = 200; // Updated batch size
         const keys = await redis.keys('*');
 
         if (keys.length > 0) {
@@ -114,8 +113,8 @@ const processQueue = async () => {
     }
 };
 
-// Schedule batch processing every 5 seconds using cron
-cron.schedule('*/5 * * * * *', processQueue);
+// Schedule batch processing every 2 seconds using cron
+cron.schedule('*/2 * * * * *', processQueue);
 
 // Start the server
 app.listen(port, () => {
