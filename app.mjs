@@ -1,27 +1,15 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
 import express from 'express';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import 'dotenv/config';
 import cron from 'node-cron';
-
+import fs from 'fs';
 import moment from 'moment-timezone';
+import { MongoClient } from 'mongodb';
 
-// Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyCQ93kH_ERQ31g-1lZMK_0EnDHuceb1MHA",
-    authDomain: "zjalliedapp.firebaseapp.com",
-    projectId: "zjalliedapp",
-    storageBucket: "zjalliedapp.appspot.com",
-    messagingSenderId: "238126670586",
-    appId: "1:238126670586:web:cfc26b0ad45842a9199f43",
-    measurementId: "G-PYLYR7KQYD"
-  };
-
-// Initialize Firebase
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+// MongoDB connection
+const mongoUrl = process.env.MONGO_URI;
+const mongoClient = new MongoClient(mongoUrl);
 
 // Initialize Redis
 const redis = new Redis();
@@ -38,9 +26,7 @@ app.post('/uploadData', async (req, res) => {
         const timestamp = moment().tz('Asia/Karachi').utc().format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
 
         if (!from || !to || !message) {
-            // Log entry for missing fields
-            
-            return res.status(400).json({ error: "Missing required fields: 'from', 'to', 'message'" });
+            return res.status(400).json({ error: timestamp });
         }
 
         // Data to cache
@@ -52,7 +38,8 @@ app.post('/uploadData', async (req, res) => {
         };
 
         // Write data to README.txt
-       
+        const logEntry = `From: ${from}\nTo: ${to}\nMessage: ${message}\nTimestamp: ${timestamp}\n\n`;
+        fs.appendFileSync('README.txt', logEntry, 'utf8');
 
         // Generate a unique cache key using UUID
         const cacheKey = uuidv4();
@@ -65,17 +52,17 @@ app.post('/uploadData', async (req, res) => {
     }
 });
 
-// Function to batch process cached data
+// Function to batch process cached data and upload to MongoDB
 const processQueue = async () => {
     try {
         const batchSize = 200; // Updated batch size
         const keys = await redis.keys('*');
 
         if (keys.length > 0) {
+            const batchData = [];
+
             for (let i = 0; i < keys.length; i += batchSize) {
                 const batchKeys = keys.slice(i, i + batchSize);
-                const batch = writeBatch(db);
-
                 const pipeline = redis.pipeline();
                 batchKeys.forEach(key => pipeline.get(key));
                 const results = await pipeline.exec();
@@ -89,8 +76,7 @@ const processQueue = async () => {
                     try {
                         const parsedData = JSON.parse(data);
                         if (typeof parsedData === 'object' && parsedData !== null) {
-                            const docRef = doc(collection(db, 'DateNumber'));
-                            batch.set(docRef, parsedData);
+                            batchData.push(parsedData);
                         } else {
                             console.error(`Invalid data format for key ${batchKeys[index]}: `, parsedData);
                         }
@@ -102,8 +88,13 @@ const processQueue = async () => {
                     redis.del(batchKeys[index]);
                 });
 
-                await batch.commit();
-                console.log(`Batch of ${batchKeys.length} documents uploaded successfully`);
+                if (batchData.length > 0) {
+                    // Insert batch data into MongoDB
+                    const db = mongoClient.db('ZjAlliedApp'); // Use your MongoDB database name
+                    const collection = db.collection('DateNumber');
+                    await collection.insertMany(batchData);
+                    console.log(`Batch of ${batchKeys.length} documents uploaded successfully`);
+                }
             }
         } else {
             console.log('No data to process');
@@ -119,4 +110,11 @@ cron.schedule('*/2 * * * * *', processQueue);
 // Start the server
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
+    mongoClient.connect(err => {
+        if (err) {
+            console.error('Error connecting to MongoDB: ', err);
+        } else {
+            console.log('Connected to MongoDB');
+        }
+    });
 });
