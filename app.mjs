@@ -13,7 +13,7 @@ const mongoUrl = process.env.MONGO_URL || "aaa";
 const mongoClient = new MongoClient(mongoUrl);
 
 
-const redis = new Redis();
+
 
 
 const app = express();
@@ -24,86 +24,7 @@ app.use(cors());
 app.use(express.json());
 
 
-app.post('/uploadData', async (req, res) => {
-    try {
-        const { from, to, message } = req.body;
-        const timestamp = moment().tz('Asia/Karachi').utc().format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
 
-        if (!from || !to || !message) {
-            return res.status(400).json({ error: 'Invalid input' });
-        }
-
-       
-        const data = { from, to, message, createdAt: timestamp };
-
-       
-       
-
-       
-        const cacheKey = uuidv4();
-        await redis.set(cacheKey, JSON.stringify(data), 'EX', 600); // Cache for 10 minutes
-
-        res.status(200).json({ message: 'Data cached successfully', id: cacheKey });
-    } catch (error) {
-        console.error('Error caching data: ', error);
-        res.status(500).json({ error: 'Error caching data' });
-    }
-});
-
-
-const processQueue = async () => {
-    try {
-        const batchSize = 200; 
-        const keys = await redis.keys('*'); 
-
-        if (keys.length > 0) {
-            const batchData = [];
-
-            for (let i = 0; i < keys.length; i += batchSize) {
-                const batchKeys = keys.slice(i, i + batchSize);
-                const pipeline = redis.pipeline();
-                batchKeys.forEach(key => pipeline.get(key));
-
-                const results = await pipeline.exec();
-
-                results.forEach(([err, data], index) => {
-                    if (err) {
-                        console.error(`Error getting data for key ${batchKeys[index]}: `, err);
-                        return;
-                    }
-
-                    try {
-                        const parsedData = JSON.parse(data);
-                        if (parsedData && typeof parsedData === 'object') {
-                            batchData.push(parsedData);
-                        } else {
-                            console.error(`Invalid data format for key ${batchKeys[index]}`);
-                        }
-                    } catch (parseError) {
-                        console.error(`Error parsing data for key ${batchKeys[index]}: `, parseError);
-                    }
-                });
-
-                if (batchData.length > 0) {
-                    const db = mongoClient.db('ZjAlliedApp');
-                    const collection = db.collection('DateNumber');
-                    await collection.insertMany(batchData);
-                   
-                    
-                   
-                    await redis.del(batchKeys);
-                }
-            }
-        } else {
-           
-        }
-    } catch (error) {
-        console.error('Error processing queue: ', error);
-    }
-};
-
-
-cron.schedule('*/2 * * * * *', processQueue);
 
 
 app.get('/queryData', async (req, res) => {
@@ -191,7 +112,7 @@ app.get('/data', async (req, res) => {
       res.status(200).json(data);
     } catch (error) {
       console.error('Error fetching data:', error);
-      res.status(500).json({ error: 'An error occurred while fetching data.' });
+      res.status(500).json({ error: 'An error occurred while fetching datas.' });
     }
   });
 app.listen(port, () => {
