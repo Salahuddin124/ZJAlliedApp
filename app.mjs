@@ -9,7 +9,7 @@ import moment from 'moment-timezone';
 import { MongoClient } from 'mongodb';
 
 
-const mongoUrl = process.env.Mongo;
+const mongoUrl = process.env.MONGO_URL;
 const mongoClient = new MongoClient(mongoUrl);
 
 
